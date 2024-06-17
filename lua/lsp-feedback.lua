@@ -31,6 +31,9 @@ H.setup = function(user_config)
 	for _, r in ipairs(H.config.tracked_requests) do
 		H.config.tracked_requests[r] = true
 	end
+
+	H.add_slow_request_hook()
+	H.add_bad_response_hooks()
 end
 
 H.build_request_key = function(client_id, request)
@@ -146,42 +149,47 @@ H.status_hl = function()
 	return H.config.statusline.base_hl_group
 end
 
-vim.api.nvim_create_autocmd("LspRequest", {
-	group = vim.api.nvim_create_augroup("drew-lsp-request", { clear = true }),
-	callback = function(event)
-		local client_id = event.data.client_id
-		local request = event.data.request
-		if client_id == nil or request == nil then
-			return false
+H.add_slow_request_hook = function()
+	vim.api.nvim_create_autocmd("LspRequest", {
+		group = vim.api.nvim_create_augroup("drew-lsp-request", { clear = true }),
+		callback = function(event)
+			local client_id = event.data.client_id
+			local request = event.data.request
+			if client_id == nil or request == nil then
+				return false
+			end
+
+			if not H.config.tracked_requests[request.method] then
+				return
+			end
+
+			if request.type == "pending" then
+				H.on_request_pending(event.data)
+			elseif request.type == "cancel" or request.type == "complete" then
+				H.on_request_terminate(event.data)
+			end
+		end,
+	})
+end
+
+H.add_bad_response_hooks = function()
+	for request_name, _ in pairs(H.config.tracked_requests) do
+		local original_on_reqeust = vim.lsp.handlers[request_name]
+		vim.lsp.handlers[request_name] = function(err, result, ctx, config)
+			original_on_reqeust(err, result, ctx, config)
+
+			if ctx == nil or ctx.bufnr == nil or ctx.client_id == nil or ctx.method == nil then
+				return
+			end
+
+			if not H.config.tracked_requests[ctx.method] then
+				return
+			end
+
+			if result == nil or next(result) == nil then
+				H.set_bad_response_status()
+			end
 		end
-
-		if not H.config.tracked_requests[request.method] then
-			return
-		end
-
-		if request.type == "pending" then
-			H.on_request_pending(event.data)
-		elseif request.type == "cancel" or request.type == "complete" then
-			H.on_request_terminate(event.data)
-		end
-	end,
-})
-
--- TODO: configure per request and only on setup()
-local on_definition = vim.lsp.handlers["textDocument/definition"]
-vim.lsp.handlers["textDocument/definition"] = function(err, result, ctx, config)
-	on_definition(err, result, ctx, config)
-
-	if ctx == nil or ctx.bufnr == nil or ctx.client_id == nil or ctx.method == nil then
-		return
-	end
-
-	if not H.config.tracked_requests[ctx.method] then
-		return
-	end
-
-	if result == nil or next(result) == nil then
-		H.set_bad_response_status()
 	end
 end
 
