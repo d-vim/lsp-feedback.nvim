@@ -9,11 +9,18 @@ H.config = {
 	slow_request = {
 		threshold_ms = 1000,
 		notify = false,
-		icon = "⋯",
 	},
 	bad_response = {
 		status_timeout_ms = 2000,
-		icon = "✗",
+	},
+	statusline = {
+		base_hl_group = "StatusLine",
+
+		slow_request_hl_group = "DiffText",
+		slow_request_icon = "⋯",
+
+		bad_response_hl_group = "DiffDelete",
+		bad_response_icon = "✗",
 	},
 	tracked_requests = { "textDocument/definition" },
 }
@@ -121,12 +128,22 @@ end
 
 H.status_icon = function()
 	if H.has_bad_response() then
-		return H.config.bad_response.icon
+		return H.config.statusline.bad_response_icon
 	elseif H.has_slow_requst() then
-		return H.config.slow_request.icon
+		return H.config.statusline.slow_request_icon
 	end
 
 	return ""
+end
+
+H.status_hl = function()
+	if H.has_bad_response() then
+		return H.config.statusline.bad_response_hl_group
+	elseif H.has_slow_requst() then
+		return H.config.statusline.slow_request_hl_group
+	end
+
+	return H.config.statusline.base_hl_group
 end
 
 vim.api.nvim_create_autocmd("LspRequest", {
@@ -150,6 +167,7 @@ vim.api.nvim_create_autocmd("LspRequest", {
 	end,
 })
 
+-- TODO: configure per request and only on setup()
 local on_definition = vim.lsp.handlers["textDocument/definition"]
 vim.lsp.handlers["textDocument/definition"] = function(err, result, ctx, config)
 	on_definition(err, result, ctx, config)
