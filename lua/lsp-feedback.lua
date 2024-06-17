@@ -100,12 +100,15 @@ H.set_bad_response_status = function()
 		H.bad_response.clear_status_handle:stop()
 	end
 
-	vim.print("setting bad response status")
 	H.bad_response.occurred = true
-	H.bad_response.clear_status_handle = vim.defer_fn(function()
-		vim.print("clearing bad response status")
-		H.bad_response.occurred = false
-	end, H.config.bad_response.status_timeout_ms)
+	H.bad_response.clear_status_handle =
+		vim.defer_fn(H.clear_bad_response_status, H.config.bad_response.status_timeout_ms)
+	vim.cmd("redrawstatus")
+end
+
+H.clear_bad_response_status = function()
+	H.bad_response.occurred = false
+	vim.cmd("redrawstatus")
 end
 
 H.has_bad_response = function()
