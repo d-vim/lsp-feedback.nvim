@@ -19,7 +19,7 @@ H.config = {
 }
 
 H.setup = function(user_config)
-	H.config = vim.tbl_deep_extend("force", H.config, user_config)
+	H.config = vim.tbl_deep_extend("force", H.config, user_config or {})
 
 	for _, r in ipairs(H.config.tracked_requests) do
 		H.config.tracked_requests[r] = true
